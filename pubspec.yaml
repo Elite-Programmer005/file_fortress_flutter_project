@@ -14,8 +14,9 @@ dependencies:
   
   # Security & Encryption
   encrypt: ^5.0.1
+  # Forcing newer, v2 embedding compatible versions
   flutter_secure_storage: ^9.0.0
-  local_auth: ^2.1.7
+  local_auth: ^2.2.0
   
   # Database
   hive: ^2.2.3
@@ -23,7 +24,7 @@ dependencies:
   path_provider: ^2.1.0
   
   # File Handling
-  file_picker: ^6.1.1
+  file_picker: ^8.0.0 # <-- The most important fix
   path: ^1.9.0
   mime: ^1.0.4
   
@@ -33,7 +34,6 @@ dependencies:
   
   # Crypto
   crypto: ^3.0.3
-  pointycastle: ^3.7.3
 
 dev_dependencies:
   flutter_test:
