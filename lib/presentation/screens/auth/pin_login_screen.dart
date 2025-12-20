@@ -17,6 +17,25 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
   bool _showError = false;
   String _errorMessage = '';
 
+  @override
+  void initState() {
+    super.initState();
+    // Automatically try biometrics if enabled
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBiometrics();
+    });
+  }
+
+  Future<void> _checkBiometrics() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.biometricAvailable && authProvider.isBiometricEnabled) {
+      final authenticated = await authProvider.authenticateWithBiometrics();
+      if (authenticated && mounted) {
+        Navigator.pushReplacementNamed(context, Routes.dashboard);
+      }
+    }
+  }
+
   void _onNumberPressed(int number) {
     if (_enteredPin.length < AppConstants.pinLength) {
       setState(() {
@@ -43,11 +62,12 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
     final authProvider = context.read<AuthProvider>();
     final pin = _enteredPin.join();
 
-    final isValid = await authProvider.verifyPin(pin);
+    final isValid = await authProvider.verifyCredential(pin); // Updated method name
 
     if (isValid) {
-      // Navigate to dashboard
-      Navigator.pushReplacementNamed(context, Routes.dashboard);
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, Routes.dashboard);
+      }
     } else {
       final attemptsLeft = authProvider.getRemainingAttempts();
 
@@ -59,7 +79,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
         _enteredPin.clear();
       });
 
-      // Vibrate on wrong attempt
       HapticFeedback.heavyImpact();
     }
   }
@@ -113,7 +132,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo/Title
               Column(
                 children: [
                   const Icon(Icons.lock_outlined, size: 64, color: Colors.blue),
@@ -136,7 +154,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
 
               const SizedBox(height: 48),
 
-              // PIN Circles
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
@@ -145,7 +162,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
                 ),
               ),
 
-              // Error Message
               if (_showError)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
@@ -158,7 +174,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
 
               const SizedBox(height: 48),
 
-              // Number Pad
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 3,
@@ -168,9 +183,22 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   children: [
                     for (int i = 1; i <= 9; i++) _buildNumberButton(i),
-                    Container(), // Empty space
+                    // Biometric Button inside Numpad
+                    Consumer<AuthProvider>(
+                      builder: (context, auth, _) {
+                        if (auth.biometricAvailable && auth.isBiometricEnabled) {
+                          return InkWell(
+                            onTap: _checkBiometrics,
+                            borderRadius: BorderRadius.circular(50),
+                            child: const Center(
+                              child: Icon(Icons.fingerprint, size: 40, color: Colors.blue),
+                            ),
+                          );
+                        }
+                        return Container();
+                      },
+                    ),
                     _buildNumberButton(0),
-                    // Backspace Button
                     InkWell(
                       onTap: _onBackspacePressed,
                       borderRadius: BorderRadius.circular(50),
@@ -192,26 +220,6 @@ class _PinLoginScreenState extends State<PinLoginScreen> {
                     ),
                   ],
                 ),
-              ),
-
-              // Biometric Option
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, _) {
-                  // Only show button if biometrics are supported AND enabled by the user
-                  if (authProvider.biometricAvailable && authProvider.isBiometricEnabled) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 24),
-                      child: TextButton.icon(
-                        onPressed: () {
-                          Navigator.pushNamed(context, Routes.biometric);
-                        },
-                        icon: const Icon(Icons.fingerprint),
-                        label: const Text('Use Biometric'),
-                      ),
-                    );
-                  }
-                  return const SizedBox();
-                },
               ),
             ],
           ),

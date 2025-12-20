@@ -1,5 +1,6 @@
 import 'package:file_fortress/core/constants/routes.dart';
 import 'package:file_fortress/domain/entities/file_entity.dart';
+import 'package:file_fortress/presentation/providers/theme_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:file_fortress/core/themes/app_theme.dart';
@@ -33,8 +34,9 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: FileFortressApp(initialRoute: initialRoute), // Pass the initialRoute to the app
+      child: FileFortressApp(initialRoute: initialRoute),
     ),
   );
 }
@@ -46,23 +48,27 @@ class FileFortressApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FileFortress',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
-      initialRoute: initialRoute, // Use the determined initial route
-      routes: Routes.routes, 
-      builder: (context, child) {
-        return GestureDetector(
-          onTap: () {
-            FocusScopeNode currentFocus = FocusScope.of(context);
-            if (!currentFocus.hasPrimaryFocus && currentFocus.focusedChild != null) {
-              FocusManager.instance.primaryFocus?.unfocus();
-            }
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'FileFortress',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
+          initialRoute: initialRoute,
+          routes: Routes.routes,
+          builder: (context, child) {
+            return GestureDetector(
+              onTap: () {
+                FocusScopeNode currentFocus = FocusScope.of(context);
+                if (!currentFocus.hasPrimaryFocus && currentFocus.focusedChild != null) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                }
+              },
+              child: child,
+            );
           },
-          child: child,
         );
       },
     );
