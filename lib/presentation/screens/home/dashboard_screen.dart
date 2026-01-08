@@ -37,6 +37,41 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    // Request full access on startup to allow deleting any file type
+    _checkAllFilesPermission();
+  }
+
+  Future<void> _checkAllFilesPermission() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.manageExternalStorage.status;
+      if (!status.isGranted) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                  SizedBox(width: 10),
+                  Text("Action Required"),
+                ],
+              ),
+              content: const Text("To hide files and remove them from public storage, please allow 'All Files Access' in the next screen."),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Permission.manageExternalStorage.request();
+                  },
+                  child: const Text("Enable Full Security"),
+                ),
+              ],
+            ),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -70,20 +105,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       final box = Hive.box<FileEntity>('files');
       await box.put(fileEntity.id, fileEntity);
       
-      // Attempt to delete original
+      // Try to delete original file (Requires Manage External Storage)
       if (await file.exists()) {
         try {
           await file.delete();
         } catch (e) {
-          debugPrint("Direct deletion failed: $e");
+          debugPrint("Direct delete failed, file might be in a restricted folder: $e");
         }
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File secured and moved to vault!'), behavior: SnackBarBehavior.floating));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('File moved to Vault and removed from public storage!'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.blueAccent,
+        ));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isImporting = false);
     }
@@ -99,49 +138,19 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       final file = await assets.first.file;
       if (file != null) {
         await _handleFileUpload(file, await assets.first.titleAsync, assets.first.mimeType);
-        // This triggers the system delete dialog which is the only way to delete media on Android 11+
+        // This is the most important part for Media (Images, Videos, Audio)
+        // It triggers the system prompt to remove the file from MediaStore/Public view
         await PhotoManager.editor.deleteWithIds([assets.first.id]);
       }
     }
   }
 
   Future<void> _pickAnyFile() async {
-    // Check for MANAGE_EXTERNAL_STORAGE first for Documents
-    if (Platform.isAndroid) {
-      final status = await Permission.manageExternalStorage.status;
-      if (!status.isGranted) {
-        if (mounted) {
-          _showPermissionDialog();
-          return;
-        }
-      }
-    }
-
     FilePickerResult? result = await FilePicker.platform.pickFiles();
     if (result != null && result.files.single.path != null) {
       File file = File(result.files.single.path!);
       await _handleFileUpload(file, result.files.single.name, null);
     }
-  }
-
-  void _showPermissionDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Full Access Required"),
-        content: const Text("To hide and delete Documents (PDF, Doc, etc.) from your storage, you must enable 'All Files Access' in settings."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Permission.manageExternalStorage.request();
-            },
-            child: const Text("Open Settings"),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showAddOptions() {
@@ -152,10 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => SafeArea(
         child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            top: 10, left: 10, right: 10,
-          ),
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, top: 10, left: 10, right: 10),
           child: Wrap(
             children: [
               Center(
@@ -165,22 +171,24 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Add to Vault', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                child: Text('Secure Move to Vault', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               ),
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Colors.blue, child: Icon(Icons.photo_library, color: Colors.white)),
                 title: const Text('Images & Videos'),
+                subtitle: const Text('Remove from gallery and move to vault'),
                 onTap: () { Navigator.pop(context); _pickMedia(RequestType.common); },
               ),
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Colors.orange, child: Icon(Icons.audiotrack, color: Colors.white)),
                 title: const Text('Audio / Music'),
+                subtitle: const Text('Remove from music player and move to vault'),
                 onTap: () { Navigator.pop(context); _pickMedia(RequestType.audio); },
               ),
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.insert_drive_file, color: Colors.white)),
                 title: const Text('Documents & Others'),
-                subtitle: const Text('Requires All Files Access'),
+                subtitle: const Text('Move PDF, Docs, Zip to private vault'),
                 onTap: () { Navigator.pop(context); _pickAnyFile(); },
               ),
               const SizedBox(height: 20),
@@ -198,19 +206,20 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       appBar: AppBar(
         leading: const Padding(
           padding: EdgeInsets.only(left: 12.0),
-          child: Icon(Icons.shield_moon, color: Colors.blueAccent, size: 30),
+          child: Icon(Icons.shield_moon_outlined, color: Colors.blueAccent, size: 32),
         ),
         title: const Text('FileFortress', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.wb_sunny : Icons.nightlight_round),
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.wb_sunny_outlined : Icons.nightlight_round_outlined),
             onPressed: () => themeProvider.toggleTheme(),
           ),
-          IconButton(icon: const Icon(Icons.settings), onPressed: () => Navigator.pushNamed(context, Routes.settings)),
+          IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.pushNamed(context, Routes.settings)),
         ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          indicatorSize: TabBarIndicatorSize.label,
           tabs: const [Tab(text: 'All'), Tab(text: 'Images'), Tab(text: 'Videos'), Tab(text: 'Audio'), Tab(text: 'Docs')],
         ),
       ),
