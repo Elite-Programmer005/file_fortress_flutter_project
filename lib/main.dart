@@ -22,7 +22,10 @@ void main() async {
   // --- Check if Master Key Exists ---
   const storage = FlutterSecureStorage();
   final masterKey = await storage.read(key: 'master_key');
-  final initialRoute = masterKey == null ? Routes.setupAuth : Routes.pinLogin;
+  final onboardingSeen = await storage.read(key: 'onboarding_seen');
+  final initialRoute = masterKey == null
+      ? (onboardingSeen == 'true' ? Routes.setupAuth : Routes.welcome)
+      : Routes.pinLogin;
 
   // --- System UI and Orientation ---
   SystemChrome.setSystemUIOverlayStyle(

@@ -8,6 +8,7 @@ import 'package:file_fortress/presentation/widgets/loading_overlay.dart';
 import 'package:file_fortress/services/encryption/aes_encryption_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 
 class SetupPinScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class SetupPinScreen extends StatefulWidget {
 class _SetupPinScreenState extends State<SetupPinScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  bool _showOnboarding = true;
 
   final _formKey = GlobalKey<FormState>();
   final _pinController = TextEditingController();
@@ -29,6 +31,26 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   bool _enableBiometricSetup = false;
   bool _obscurePin = true;
   bool _obscureConfirmPin = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    const storage = FlutterSecureStorage();
+    final seen = await storage.read(key: 'onboarding_seen');
+    if (!mounted) return;
+    if (seen == 'true') {
+      setState(() => _showOnboarding = false);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(2);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -72,6 +94,11 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_showOnboarding) {
+      return Scaffold(
+        body: SafeArea(child: _buildSetupPage()),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: PageView(

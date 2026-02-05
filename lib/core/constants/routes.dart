@@ -2,6 +2,7 @@ import 'package:file_fortress/presentation/screens/auth/pin_login_screen.dart';
 import 'package:file_fortress/presentation/screens/auth/setup_auth_screen.dart';
 import 'package:file_fortress/presentation/screens/auth/setup_pattern_screen.dart';
 import 'package:file_fortress/presentation/screens/auth/setup_pin_screen.dart';
+import 'package:file_fortress/presentation/screens/auth/welcome_screen.dart';
 import 'package:file_fortress/presentation/screens/home/dashboard_screen.dart';
 import 'package:file_fortress/presentation/screens/settings/change_pin_screen.dart';
 import 'package:file_fortress/presentation/screens/settings/change_pattern_screen.dart';
@@ -12,6 +13,7 @@ import 'package:flutter/material.dart';
 
 class Routes {
   static const String pinLogin = '/pin-login';
+  static const String welcome = '/welcome';
   static const String setupAuth = '/setup-auth';
   static const String setupPin = '/setup-pin';
   static const String setupPattern = '/setup-pattern';
@@ -24,6 +26,7 @@ class Routes {
   static const String verifyUpdateCredentials = '/verify-update-credentials';
 
   static Map<String, WidgetBuilder> get routes => {
+        welcome: (context) => const WelcomeScreen(),
         pinLogin: (context) => const PinLoginScreen(),
         setupAuth: (context) => const SetupAuthScreen(),
         setupPin: (context) => const SetupPinScreen(),

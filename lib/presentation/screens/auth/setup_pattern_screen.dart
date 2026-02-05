@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:file_fortress/core/constants/app_constants.dart';
 import 'package:file_fortress/core/constants/routes.dart';
 import 'package:file_fortress/core/themes/app_theme.dart';
@@ -150,124 +152,176 @@ class _SetupPatternScreenState extends State<SetupPatternScreen> {
     required ValueChanged<List<int>> onCompleted,
     bool showBiometricToggle = false,
   }) {
-    final padSize = MediaQuery.of(context).size.height < 700 ? 220.0 : 260.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 700;
+        final hasBiometric = showBiometricToggle &&
+            context.watch<AuthProvider>().biometricAvailable;
+        final scaleBase = (constraints.maxHeight / 760).clamp(0.68, 1.0);
+        final scale = hasBiometric ? scaleBase * 0.92 : scaleBase;
+        final spacingLarge =
+            (isCompact ? AppTheme.mediumSpacing : AppTheme.largeSpacing) *
+                scale;
+        final spacingSmall =
+            (isCompact ? AppTheme.smallSpacing : AppTheme.standardSpacing) *
+                scale;
+        final iconSize = (isCompact ? 44.0 : 56.0) * scale;
 
-    return Padding(
-      padding: const EdgeInsets.all(AppTheme.pagePadding),
-      child: Column(
-        children: [
-          const SizedBox(height: AppTheme.largeSpacing),
-          FadeInScale(
-            duration: AppTheme.transitionDuration,
-            child: Container(
-              padding: const EdgeInsets.all(AppTheme.standardSpacing),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.primary.withOpacity(0.15),
-                    colorScheme.primary.withOpacity(0.05),
+        final titleFontSize = (AppTheme.headlineLarge.fontSize ?? 28) * scale;
+        final bodyFontSize = (AppTheme.bodyMedium.fontSize ?? 14) * scale;
+
+        final padSize = math.min(
+          constraints.maxWidth * 0.68,
+          constraints.maxHeight * (hasBiometric ? 0.26 : 0.30),
+        );
+
+        return Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppTheme.pagePadding,
+            vertical: spacingSmall,
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: spacingLarge),
+              FadeInScale(
+                duration: AppTheme.transitionDuration,
+                child: Container(
+                  padding: const EdgeInsets.all(AppTheme.standardSpacing),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colorScheme.primary.withOpacity(0.15),
+                        colorScheme.primary.withOpacity(0.05),
+                      ],
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.pattern_rounded,
+                    size: iconSize,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              SizedBox(height: spacingLarge),
+              FadeInUp(
+                delayMs: 100,
+                child: Text(
+                  title,
+                  style: AppTheme.headlineLarge.copyWith(
+                    color: colorScheme.onBackground,
+                    fontSize: titleFontSize,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(height: spacingSmall),
+              FadeInUp(
+                delayMs: 150,
+                child: Text(
+                  subtitle,
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: bodyFontSize,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Center(
+                        child: SizedBox(
+                          height: padSize,
+                          width: padSize,
+                          child: PatternPad(
+                            key: patternKey,
+                            activeColor: colorScheme.primary,
+                            inactiveColor: colorScheme.outlineVariant,
+                            errorColor: colorScheme.error,
+                            showError: _showError,
+                            onChanged: (_) {
+                              if (_showError) {
+                                setState(() => _showError = false);
+                              }
+                            },
+                            onCompleted: onCompleted,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: spacingSmall),
+                    if (_showError)
+                      Text(
+                        _errorMessage,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: colorScheme.error,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    if (showBiometricToggle)
+                      Padding(
+                        padding: EdgeInsets.only(top: spacingSmall),
+                        child: Consumer<AuthProvider>(
+                          builder: (context, authProvider, child) {
+                            if (!authProvider.biometricAvailable) {
+                              return const SizedBox.shrink();
+                            }
+                            return Card(
+                              margin: EdgeInsets.zero,
+                              child: SwitchListTile(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: AppTheme.standardSpacing,
+                                  vertical: AppTheme.smallSpacing * 0.5,
+                                ),
+                                title: Text(
+                                  'Enable Fingerprint Unlock',
+                                  style: AppTheme.titleMedium.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontSize:
+                                        (AppTheme.titleMedium.fontSize ?? 16) *
+                                            scale,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'Use biometrics to unlock your vault faster',
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize:
+                                        (AppTheme.bodySmall.fontSize ?? 12) *
+                                            scale,
+                                  ),
+                                ),
+                                value: _enableBiometricSetup,
+                                onChanged: (val) =>
+                                    setState(() => _enableBiometricSetup = val),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    SizedBox(height: spacingSmall),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => patternKey.currentState?.clear(),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Reset Pattern'),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              child: Icon(
-                Icons.pattern_rounded,
-                size: 56,
-                color: colorScheme.primary,
-              ),
-            ),
+            ],
           ),
-          const SizedBox(height: AppTheme.largeSpacing),
-          FadeInUp(
-            delayMs: 100,
-            child: Text(
-              title,
-              style: AppTheme.headlineLarge.copyWith(
-                color: colorScheme.onBackground,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: AppTheme.smallSpacing),
-          FadeInUp(
-            delayMs: 150,
-            child: Text(
-              subtitle,
-              style: AppTheme.bodyMedium.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: AppTheme.largeSpacing),
-          SizedBox(
-            height: padSize,
-            width: padSize,
-            child: PatternPad(
-              key: patternKey,
-              activeColor: colorScheme.primary,
-              inactiveColor: colorScheme.outlineVariant,
-              errorColor: colorScheme.error,
-              showError: _showError,
-              onChanged: (_) {
-                if (_showError) {
-                  setState(() => _showError = false);
-                }
-              },
-              onCompleted: onCompleted,
-            ),
-          ),
-          const SizedBox(height: AppTheme.largeSpacing),
-          if (_showError)
-            Text(
-              _errorMessage,
-              style: AppTheme.bodySmall.copyWith(color: colorScheme.error),
-              textAlign: TextAlign.center,
-            ),
-          if (showBiometricToggle)
-            Padding(
-              padding: const EdgeInsets.only(top: AppTheme.largeSpacing),
-              child: Consumer<AuthProvider>(
-                builder: (context, authProvider, child) {
-                  if (!authProvider.biometricAvailable) {
-                    return const SizedBox.shrink();
-                  }
-                  return Card(
-                    child: SwitchListTile(
-                      title: Text(
-                        'Enable Fingerprint Unlock',
-                        style: AppTheme.titleMedium.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Use biometrics to unlock your vault faster',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      value: _enableBiometricSetup,
-                      onChanged: (val) =>
-                          setState(() => _enableBiometricSetup = val),
-                    ),
-                  );
-                },
-              ),
-            ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => patternKey.currentState?.clear(),
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Reset Pattern'),
-            ),
-          ),
-          const SizedBox(height: AppTheme.mediumSpacing),
-        ],
-      ),
+        );
+      },
     );
   }
 }

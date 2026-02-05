@@ -226,7 +226,12 @@ class _PinLoginScreenState extends State<PinLoginScreen>
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final layout = _LayoutConfig(constraints: constraints);
+            final layout = _LayoutConfig(
+              constraints: constraints,
+              isPattern: isPattern,
+              hasBiometric: authProvider.biometricAvailable &&
+                  authProvider.isBiometricEnabled,
+            );
             return Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: AppTheme.pagePadding,
@@ -234,7 +239,10 @@ class _PinLoginScreenState extends State<PinLoginScreen>
               ),
               child: Column(
                 children: [
-                  SizedBox(height: layout.edgeSpacing),
+                  if (isPattern)
+                    const Spacer()
+                  else
+                    SizedBox(height: layout.edgeSpacing),
                   _buildHeader(colorScheme, layout: layout),
                   SizedBox(height: layout.sectionSpacing),
                   _buildPinIndicator(
@@ -261,7 +269,10 @@ class _PinLoginScreenState extends State<PinLoginScreen>
                       ),
                     ),
                   ),
-                  SizedBox(height: layout.edgeSpacing),
+                  if (isPattern)
+                    const Spacer()
+                  else
+                    SizedBox(height: layout.edgeSpacing),
                 ],
               ),
             );
@@ -650,37 +661,42 @@ class _LayoutConfig {
   final double keypadIconSize;
   final double patternSize;
 
-  _LayoutConfig({required BoxConstraints constraints})
-      : isCompact = constraints.maxHeight < 700,
-        isUltraCompact = constraints.maxHeight < 600,
+  _LayoutConfig({
+    required BoxConstraints constraints,
+    required bool isPattern,
+    required bool hasBiometric,
+  })  : isCompact = constraints.maxHeight < 760,
+        isUltraCompact = constraints.maxHeight < 640,
         verticalPadding = constraints.maxHeight < 600
             ? AppTheme.smallSpacing * 0.5
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? AppTheme.smallSpacing
                 : AppTheme.mediumSpacing,
-        edgeSpacing = constraints.maxHeight < 600
-            ? AppTheme.smallSpacing * 0.5
-            : constraints.maxHeight < 700
+        edgeSpacing = (constraints.maxHeight < 600
+                ? AppTheme.smallSpacing * 0.5
+                : constraints.maxHeight < 760
+                    ? AppTheme.smallSpacing
+                    : AppTheme.mediumSpacing) *
+            (isPattern ? 0.85 : 1.0),
+        sectionSpacing = (constraints.maxHeight < 600
                 ? AppTheme.smallSpacing
-                : AppTheme.mediumSpacing,
-        sectionSpacing = constraints.maxHeight < 600
-            ? AppTheme.smallSpacing
-            : constraints.maxHeight < 700
-                ? AppTheme.mediumSpacing
-                : AppTheme.largeSpacing,
+                : constraints.maxHeight < 760
+                    ? AppTheme.mediumSpacing
+                    : AppTheme.largeSpacing) *
+            (isPattern ? 0.85 : 1.0),
         gridAspectRatio = constraints.maxHeight < 600
             ? 1.8
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 1.5
                 : 1.2,
         gridSpacing = constraints.maxHeight < 600
             ? 10
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 14
                 : AppTheme.mediumSpacing,
         headerIconSize = constraints.maxHeight < 600
             ? 36
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 44
                 : 56,
         headerIconPadding = constraints.maxHeight < 600
@@ -688,42 +704,46 @@ class _LayoutConfig {
             : AppTheme.standardSpacing,
         titleFontSize = constraints.maxHeight < 600
             ? 28
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 34
                 : 45,
         subtitleFontSize = constraints.maxHeight < 600
             ? 12
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 14
                 : 16,
-        headerTitleSpacing = constraints.maxHeight < 600
-            ? AppTheme.smallSpacing
-            : constraints.maxHeight < 700
-                ? AppTheme.standardSpacing
-                : AppTheme.largeSpacing,
+        headerTitleSpacing = (constraints.maxHeight < 600
+                ? AppTheme.smallSpacing
+                : constraints.maxHeight < 760
+                    ? AppTheme.standardSpacing
+                    : AppTheme.largeSpacing) *
+            (isPattern ? 0.85 : 1.0),
         headerSubtitleSpacing =
             constraints.maxHeight < 600 ? 4 : AppTheme.smallSpacing,
-        indicatorSpacing = constraints.maxHeight < 600
-            ? AppTheme.smallSpacing
-            : constraints.maxHeight < 700
-                ? AppTheme.standardSpacing
-                : AppTheme.largeSpacing,
+        indicatorSpacing = (constraints.maxHeight < 600
+                ? AppTheme.smallSpacing
+                : constraints.maxHeight < 760
+                    ? AppTheme.standardSpacing
+                    : AppTheme.largeSpacing) *
+            (isPattern ? 0.85 : 1.0),
         keypadFontSize = constraints.maxHeight < 600
             ? 22
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 26
                 : 28,
         keypadIconSize = constraints.maxHeight < 600
             ? 22
-            : constraints.maxHeight < 700
+            : constraints.maxHeight < 760
                 ? 26
                 : 28,
         patternSize = math.min(
-          constraints.maxWidth * 0.78,
-          constraints.maxHeight < 600
-              ? constraints.maxHeight * 0.26
-              : constraints.maxHeight < 700
-                  ? constraints.maxHeight * 0.30
-                  : constraints.maxHeight * 0.34,
-        );
+              constraints.maxWidth * 0.72,
+              constraints.maxHeight *
+                  (constraints.maxHeight < 640
+                      ? 0.21
+                      : constraints.maxHeight < 760
+                          ? 0.24
+                          : 0.28),
+            ) *
+            (hasBiometric ? 0.98 : 1.0);
 }
