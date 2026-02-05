@@ -22,12 +22,15 @@ void main() async {
   // --- Check if Master Key Exists ---
   const storage = FlutterSecureStorage();
   final masterKey = await storage.read(key: 'master_key');
-  final initialRoute = masterKey == null ? Routes.setupPin : Routes.pinLogin;
+  final initialRoute = masterKey == null ? Routes.setupAuth : Routes.pinLogin;
 
   // --- System UI and Orientation ---
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(systemNavigationBarColor: Colors.transparent),
+  );
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
   ]);
 
   runApp(
@@ -58,15 +61,15 @@ class FileFortressApp extends StatelessWidget {
           themeMode: themeProvider.themeMode,
           initialRoute: initialRoute,
           routes: Routes.routes,
+          // Correctly implement the AnimatedSwitcher with a Key
           builder: (context, child) {
-            return GestureDetector(
-              onTap: () {
-                FocusScopeNode currentFocus = FocusScope.of(context);
-                if (!currentFocus.hasPrimaryFocus && currentFocus.focusedChild != null) {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                }
-              },
-              child: child,
+            return AnimatedSwitcher(
+              duration: AppTheme.animationDuration,
+              child: KeyedSubtree(
+                // Use the themeMode as a key to trigger the animation when it changes.
+                key: ValueKey(themeProvider.themeMode),
+                child: child!,
+              ),
             );
           },
         );

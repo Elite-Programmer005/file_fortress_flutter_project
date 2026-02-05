@@ -1,18 +1,34 @@
-import 'package:file_fortress/presentation/providers/auth_provider.dart';
+import 'package:file_fortress/core/constants/app_constants.dart';
+import 'package:file_fortress/services/encryption/aes_encryption_service.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class MasterPasswordSettingsScreen extends StatefulWidget {
   const MasterPasswordSettingsScreen({super.key});
 
   @override
-  State<MasterPasswordSettingsScreen> createState() => _MasterPasswordSettingsScreenState();
+  State<MasterPasswordSettingsScreen> createState() =>
+      _MasterPasswordSettingsScreenState();
 }
 
-class _MasterPasswordSettingsScreenState extends State<MasterPasswordSettingsScreen> {
+class _MasterPasswordSettingsScreenState
+    extends State<MasterPasswordSettingsScreen> {
   final _oldPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _encryptionService = AESEncryptionService();
+
+  bool _obscureOld = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _oldPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,39 +39,78 @@ class _MasterPasswordSettingsScreenState extends State<MasterPasswordSettingsScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Change Authentication Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _buildTypeTile(context, AuthType.pin, 'PIN', 'Switch to a 4-6 digit numeric code'),
-            _buildTypeTile(context, AuthType.password, 'Password', 'Switch to an alphanumeric password'),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const Text('Change Secret Key', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Change Secret Key',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextField(
               controller: _oldPasswordController,
-              decoration: const InputDecoration(labelText: 'Old PIN/Password', border: OutlineInputBorder()),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Old Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureOld
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                  ),
+                  onPressed: () => setState(() => _obscureOld = !_obscureOld),
+                ),
+              ),
+              obscureText: _obscureOld,
+              textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _newPasswordController,
-              decoration: const InputDecoration(labelText: 'New PIN/Password', border: OutlineInputBorder()),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'New Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureNew
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                  ),
+                  onPressed: () => setState(() => _obscureNew = !_obscureNew),
+                ),
+              ),
+              obscureText: _obscureNew,
+              textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _confirmPasswordController,
-              decoration: const InputDecoration(labelText: 'Confirm New Key', border: OutlineInputBorder()),
-              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Confirm New Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirm
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+              ),
+              obscureText: _obscureConfirm,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _saveNewKey(),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _saveNewKey,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: const Text('Update Credentials'),
+                onPressed: _isSaving ? null : _saveNewKey,
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Update Credentials'),
               ),
             ),
           ],
@@ -64,25 +119,54 @@ class _MasterPasswordSettingsScreenState extends State<MasterPasswordSettingsScr
     );
   }
 
-  Widget _buildTypeTile(BuildContext context, AuthType type, String title, String sub) {
-    final current = context.watch<AuthProvider>().selectedAuthType;
-    return RadioListTile<AuthType>(
-      title: Text(title),
-      subtitle: Text(sub),
-      value: type,
-      groupValue: current,
-      onChanged: (val) {
-        if (val != null) context.read<AuthProvider>().setAuthType(val);
-      },
-    );
-  }
+  Future<void> _saveNewKey() async {
+    final oldKey = _oldPasswordController.text.trim();
+    final newKey = _newPasswordController.text.trim();
+    final confirmKey = _confirmPasswordController.text.trim();
 
-  void _saveNewKey() async {
-    if (_newPasswordController.text != _confirmPasswordController.text) {
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
-       return;
+    if (oldKey.isEmpty || newKey.isEmpty || confirmKey.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All fields are required')),
+      );
+      return;
     }
-    // Logic to verify old and save new
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Security updated!')));
+
+    if (newKey.length < AppConstants.passwordMinLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                'Password must be at least ${AppConstants.passwordMinLength} characters')),
+      );
+      return;
+    }
+
+    if (newKey != confirmKey) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final success = await _encryptionService.changeMasterPassword(
+      oldPassword: oldKey,
+      newPassword: newKey,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Security updated!')),
+      );
+      _oldPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Old credential does not match')),
+      );
+    }
   }
 }

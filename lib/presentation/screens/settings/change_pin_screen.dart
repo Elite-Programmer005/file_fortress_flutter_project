@@ -1,5 +1,7 @@
+import 'package:file_fortress/core/constants/app_constants.dart';
 import 'package:file_fortress/services/encryption/aes_encryption_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class ChangePinScreen extends StatefulWidget {
   const ChangePinScreen({super.key});
@@ -14,9 +16,14 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
   final _newPinController = TextEditingController();
   final _confirmPinController = TextEditingController();
   final _encryptionService = AESEncryptionService();
-  
+
   bool _isLoading = false;
   bool _arePinsVisible = false; // Single boolean to control all fields
+
+  List<TextInputFormatter> get _pinFormatters => [
+        LengthLimitingTextInputFormatter(AppConstants.pinLength),
+        FilteringTextInputFormatter.digitsOnly,
+      ];
 
   Future<void> _changePin() async {
     if (_formKey.currentState!.validate()) {
@@ -42,7 +49,8 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to change PIN. Is your old PIN correct?')),
+          const SnackBar(
+              content: Text('Failed to change PIN. Is your old PIN correct?')),
         );
       }
     }
@@ -64,10 +72,14 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
                 controller: _oldPinController,
                 obscureText: !_arePinsVisible,
                 keyboardType: TextInputType.number,
+                inputFormatters: _pinFormatters,
                 decoration: const InputDecoration(labelText: 'Old PIN'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your old PIN';
+                  }
+                  if (value.length != AppConstants.pinLength) {
+                    return 'PIN must be exactly ${AppConstants.pinLength} digits';
                   }
                   return null;
                 },
@@ -77,10 +89,14 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
                 controller: _newPinController,
                 obscureText: !_arePinsVisible,
                 keyboardType: TextInputType.number,
+                inputFormatters: _pinFormatters,
                 decoration: const InputDecoration(labelText: 'New PIN'),
                 validator: (value) {
-                  if (value == null || value.length < 6) {
-                    return 'PIN must be at least 6 digits';
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a new PIN';
+                  }
+                  if (value.length != AppConstants.pinLength) {
+                    return 'PIN must be exactly ${AppConstants.pinLength} digits';
                   }
                   return null;
                 },
@@ -90,8 +106,15 @@ class _ChangePinScreenState extends State<ChangePinScreen> {
                 controller: _confirmPinController,
                 obscureText: !_arePinsVisible,
                 keyboardType: TextInputType.number,
+                inputFormatters: _pinFormatters,
                 decoration: const InputDecoration(labelText: 'Confirm New PIN'),
                 validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your new PIN';
+                  }
+                  if (value.length != AppConstants.pinLength) {
+                    return 'PIN must be exactly ${AppConstants.pinLength} digits';
+                  }
                   if (value != _newPinController.text) {
                     return 'PINs do not match';
                   }

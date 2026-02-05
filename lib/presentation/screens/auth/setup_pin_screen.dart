@@ -1,7 +1,13 @@
+import 'package:file_fortress/core/constants/app_constants.dart';
 import 'package:file_fortress/core/constants/routes.dart';
+import 'package:file_fortress/core/themes/app_theme.dart';
 import 'package:file_fortress/presentation/providers/auth_provider.dart';
+import 'package:file_fortress/presentation/widgets/animated_button.dart';
+import 'package:file_fortress/presentation/widgets/entrance_animations.dart';
+import 'package:file_fortress/presentation/widgets/loading_overlay.dart';
 import 'package:file_fortress/services/encryption/aes_encryption_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 class SetupPinScreen extends StatefulWidget {
@@ -21,6 +27,8 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   final _encryptionService = AESEncryptionService();
   bool _isLoading = false;
   bool _enableBiometricSetup = false;
+  bool _obscurePin = true;
+  bool _obscureConfirmPin = true;
 
   @override
   void dispose() {
@@ -31,7 +39,10 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
   }
 
   void _nextPage() {
-    _pageController.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeIn);
+    _pageController.nextPage(
+      duration: AppTheme.transitionDuration,
+      curve: Curves.easeInOutCubic,
+    );
   }
 
   Future<void> _createVault() async {
@@ -39,17 +50,22 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
       setState(() => _isLoading = true);
       try {
         await _encryptionService.saveMasterKey(_pinController.text);
-        
-        // Save biometric preference if chosen
+
         if (_enableBiometricSetup) {
           await context.read<AuthProvider>().toggleBiometrics(true);
         }
 
         if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(context, Routes.dashboard, (route) => false);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          Routes.dashboard,
+          (route) => false,
+        );
       } catch (e) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     }
   }
@@ -63,20 +79,8 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
           physics: const NeverScrollableScrollPhysics(),
           onPageChanged: (index) => setState(() => _currentPage = index),
           children: [
-            _buildOnboardingPage(
-              icon: Icons.security_rounded,
-              title: 'Welcome to FileFortress',
-              description: 'Your private photos, videos, and documents are now safe. We use military-grade encryption to protect your privacy.',
-              buttonText: 'Get Started',
-              onPressed: _nextPage,
-            ),
-            _buildOnboardingPage(
-              icon: Icons.fingerprint_rounded,
-              title: 'Fast & Secure',
-              description: 'Unlock your vault instantly with your fingerprint. No need to type your PIN every time.',
-              buttonText: 'Next',
-              onPressed: _nextPage,
-            ),
+            _buildOnboardingPage1(),
+            _buildOnboardingPage2(),
             _buildSetupPage(),
           ],
         ),
@@ -84,94 +88,375 @@ class _SetupPinScreenState extends State<SetupPinScreen> {
     );
   }
 
-  Widget _buildOnboardingPage({required IconData icon, required String title, required String description, required String buttonText, required VoidCallback onPressed}) {
-    return Padding(
-      padding: const EdgeInsets.all(32.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 100, color: Colors.blueAccent),
-          const SizedBox(height: 40),
-          Text(title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          Text(description, style: const TextStyle(fontSize: 16, color: Colors.grey), textAlign: TextAlign.center),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: onPressed,
-              style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: Text(buttonText, style: const TextStyle(fontSize: 18)),
+  Widget _buildOnboardingPage1() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.pagePadding,
+          vertical: AppTheme.largeSpacing,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInScale(
+              duration: AppTheme.transitionDuration,
+              child: Container(
+                padding: const EdgeInsets.all(AppTheme.standardSpacing),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                      Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                    ],
+                  ),
+                ),
+                child: Icon(
+                  Icons.security_rounded,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInUp(
+              delayMs: 100,
+              child: Text(
+                'Welcome to FileFortress',
+                style: AppTheme.displayMedium,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: AppTheme.standardSpacing),
+            FadeInUp(
+              delayMs: 200,
+              child: Text(
+                'Your private photos, videos, and documents are now safe. We use military-grade encryption to protect your privacy.',
+                style: AppTheme.bodyLarge.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInUp(
+              delayMs: 300,
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: AnimatedButton(
+                  onPressed: _nextPage,
+                  label: 'Get Started',
+                  icon: Icons.arrow_forward_rounded,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.largeSpacing),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOnboardingPage2() {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.pagePadding,
+          vertical: AppTheme.largeSpacing,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInScale(
+              duration: AppTheme.transitionDuration,
+              delayMs: 50,
+              child: Container(
+                padding: const EdgeInsets.all(AppTheme.standardSpacing),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                      Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                    ],
+                  ),
+                ),
+                child: Icon(
+                  Icons.fingerprint_rounded,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInUp(
+              delayMs: 150,
+              child: Text(
+                'Fast & Secure',
+                style: AppTheme.displayMedium,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: AppTheme.standardSpacing),
+            FadeInUp(
+              delayMs: 250,
+              child: Text(
+                'Unlock your vault instantly with your fingerprint. No need to type your PIN every time.',
+                style: AppTheme.bodyLarge.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: AppTheme.extraLargeSpacing),
+            FadeInUp(
+              delayMs: 350,
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: AnimatedButton(
+                  onPressed: _nextPage,
+                  label: 'Continue',
+                  icon: Icons.arrow_forward_rounded,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppTheme.largeSpacing),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSetupPage() {
     final authProvider = context.watch<AuthProvider>();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          children: [
-            const SizedBox(height: 40),
-            const Icon(Icons.shield_rounded, size: 80, color: Colors.blueAccent),
-            const SizedBox(height: 24),
-            const Text('Setup Master Key', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 40),
-            TextFormField(
-              controller: _pinController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Enter Master PIN/Password',
-                prefixIcon: const Icon(Icons.key),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              validator: (value) => (value == null || value.length < 4) ? 'Must be at least 4 characters' : null,
-            ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _confirmPinController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Confirm Master Key',
-                prefixIcon: const Icon(Icons.vpn_key_outlined),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              validator: (value) => value != _pinController.text ? 'Keys do not match' : null,
-            ),
-            const SizedBox(height: 24),
-            
-            // Biometric Option during Setup
-            if (authProvider.biometricAvailable)
-              SwitchListTile(
-                title: const Text('Enable Fingerprint Unlock'),
-                subtitle: const Text('Use biometrics to unlock your vault'),
-                value: _enableBiometricSetup,
-                onChanged: (val) => setState(() => _enableBiometricSetup = val),
-              ),
-            
-            const SizedBox(height: 32),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _createVault,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: const Text('Complete Setup', style: TextStyle(fontSize: 18)),
+    final colorScheme = Theme.of(context).colorScheme;
+    final isPassword = authProvider.selectedAuthType == AuthType.password;
+    final isPin = authProvider.selectedAuthType == AuthType.pin;
+    final inputFormatters = <TextInputFormatter>[
+      if (isPin) LengthLimitingTextInputFormatter(AppConstants.pinLength),
+      if (isPin) FilteringTextInputFormatter.digitsOnly,
+      if (isPassword)
+        LengthLimitingTextInputFormatter(AppConstants.passwordMaxLength),
+    ];
+    final label = isPassword ? 'Password' : 'PIN';
+    final minHint = isPassword
+        ? 'Min ${AppConstants.passwordMinLength} characters'
+        : 'Exactly ${AppConstants.pinLength} digits';
+
+    return LoadingOverlay(
+      isLoading: _isLoading,
+      message: 'Setting up your vault...',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.pagePadding),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              const SizedBox(height: AppTheme.extraLargeSpacing),
+
+              // ─────────────────────────────────────────────────────────────
+              // HEADER
+              // ─────────────────────────────────────────────────────────────
+              FadeInScale(
+                duration: AppTheme.transitionDuration,
+                child: Container(
+                  padding: const EdgeInsets.all(AppTheme.standardSpacing),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colorScheme.primary.withOpacity(0.15),
+                        colorScheme.primary.withOpacity(0.05),
+                      ],
                     ),
                   ),
-          ],
+                  child: Icon(
+                    Icons.shield_rounded,
+                    size: 64,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppTheme.largeSpacing),
+
+              FadeInUp(
+                delayMs: 100,
+                child: Text(
+                  'Setup Master Key',
+                  style: AppTheme.headlineLarge.copyWith(
+                    color: colorScheme.onBackground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: AppTheme.extraLargeSpacing),
+
+              // ─────────────────────────────────────────────────────────────
+              // PIN INPUT FIELDS
+              // ─────────────────────────────────────────────────────────────
+              FadeInUp(
+                delayMs: 150,
+                child: TextFormField(
+                  controller: _pinController,
+                  obscureText: _obscurePin,
+                  keyboardType:
+                      isPassword ? TextInputType.text : TextInputType.number,
+                  inputFormatters: inputFormatters,
+                  decoration: InputDecoration(
+                    labelText: 'Enter Master $label',
+                    prefixIcon: const Icon(Icons.key_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePin
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
+                      onPressed: () {
+                        setState(() => _obscurePin = !_obscurePin);
+                      },
+                    ),
+                    hintText: minHint,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your $label';
+                    }
+                    if (isPin && value.length != AppConstants.pinLength) {
+                      return 'PIN must be exactly ${AppConstants.pinLength} digits';
+                    }
+                    if (isPassword &&
+                        value.length < AppConstants.passwordMinLength) {
+                      return 'Password must be at least ${AppConstants.passwordMinLength} characters';
+                    }
+                    if (isPin && !RegExp(r'^\d+$').hasMatch(value)) {
+                      return 'PIN must contain only digits';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(height: AppTheme.standardSpacing),
+
+              FadeInUp(
+                delayMs: 200,
+                child: TextFormField(
+                  controller: _confirmPinController,
+                  obscureText: _obscureConfirmPin,
+                  keyboardType:
+                      isPassword ? TextInputType.text : TextInputType.number,
+                  inputFormatters: inputFormatters,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Master $label',
+                    prefixIcon: const Icon(Icons.vpn_key_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPin
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
+                      onPressed: () {
+                        setState(
+                            () => _obscureConfirmPin = !_obscureConfirmPin);
+                      },
+                    ),
+                    hintText: 'Re-enter your $label',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your $label';
+                    }
+                    if (isPin && value.length != AppConstants.pinLength) {
+                      return 'PIN must be exactly ${AppConstants.pinLength} digits';
+                    }
+                    if (isPassword &&
+                        value.length < AppConstants.passwordMinLength) {
+                      return 'Password must be at least ${AppConstants.passwordMinLength} characters';
+                    }
+                    if (value != _pinController.text) {
+                      return 'Keys do not match';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+              const SizedBox(height: AppTheme.extraLargeSpacing),
+
+              // ─────────────────────────────────────────────────────────────
+              // BIOMETRIC OPTION
+              // ─────────────────────────────────────────────────────────────
+              if (authProvider.biometricAvailable)
+                FadeInUp(
+                  delayMs: 250,
+                  child: Card(
+                    child: SwitchListTile(
+                      title: Text(
+                        'Enable Fingerprint Unlock',
+                        style: AppTheme.titleMedium.copyWith(
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Use biometrics to unlock your vault faster',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      value: _enableBiometricSetup,
+                      onChanged: (val) =>
+                          setState(() => _enableBiometricSetup = val),
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: AppTheme.extraLargeSpacing),
+
+              // ─────────────────────────────────────────────────────────────
+              // ACTION BUTTONS
+              // ─────────────────────────────────────────────────────────────
+              FadeInUp(
+                delayMs: 300,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: _currentPage > 0
+                              ? () => _pageController.previousPage(
+                                    duration: AppTheme.transitionDuration,
+                                    curve: Curves.easeInOutCubic,
+                                  )
+                              : null,
+                          child: const Text('Back'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppTheme.standardSpacing),
+                    Expanded(
+                      child: AnimatedButton(
+                        onPressed: _createVault,
+                        label: 'Complete Setup',
+                        icon: Icons.done_rounded,
+                        isLoading: _isLoading,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: AppTheme.largeSpacing),
+            ],
+          ),
         ),
       ),
     );

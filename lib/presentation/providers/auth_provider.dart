@@ -15,6 +15,10 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
   bool get isLoggedIn => _isLoggedIn;
 
+  // Add an initialization flag
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   bool _biometricAvailable = false;
   bool get biometricAvailable => _biometricAvailable;
 
@@ -33,6 +37,9 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _init() async {
     await _checkBiometrics();
     await _loadPreferences();
+    // Signal that initialization is complete
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> _checkBiometrics() async {

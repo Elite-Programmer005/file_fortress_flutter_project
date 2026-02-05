@@ -1,3 +1,4 @@
+import 'package:file_fortress/core/constants/app_constants.dart';
 import 'package:file_fortress/core/constants/routes.dart';
 import 'package:file_fortress/presentation/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +30,7 @@ class _SetupAuthScreenState extends State<SetupAuthScreen> {
               context,
               icon: Icons.pin,
               title: 'PIN',
-              subtitle: '4-6 digit numeric code',
+              subtitle: '${AppConstants.pinLength}-digit numeric code',
               onTap: () {
                 context.read<AuthProvider>().setAuthType(AuthType.pin);
                 Navigator.pushNamed(context, Routes.setupPin);
@@ -40,11 +41,22 @@ class _SetupAuthScreenState extends State<SetupAuthScreen> {
               context,
               icon: Icons.password,
               title: 'Password',
-              subtitle: 'Alphanumeric secure password',
+              subtitle: 'Min ${AppConstants.passwordMinLength} characters',
               onTap: () {
-                 context.read<AuthProvider>().setAuthType(AuthType.password);
-                 // We'll reuse the setup logic but with a different UI
-                 _showPasswordSetupDialog(context);
+                context.read<AuthProvider>().setAuthType(AuthType.password);
+                Navigator.pushNamed(context, Routes.setupPin);
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildAuthOption(
+              context,
+              icon: Icons.gesture_rounded,
+              title: 'Pattern',
+              subtitle:
+                  'Connect at least ${AppConstants.patternMinLength} dots',
+              onTap: () {
+                context.read<AuthProvider>().setAuthType(AuthType.pattern);
+                Navigator.pushNamed(context, Routes.setupPattern);
               },
             ),
           ],
@@ -53,7 +65,11 @@ class _SetupAuthScreenState extends State<SetupAuthScreen> {
     );
   }
 
-  Widget _buildAuthOption(BuildContext context, {required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+  Widget _buildAuthOption(BuildContext context,
+      {required IconData icon,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap}) {
     return Card(
       elevation: 2,
       child: ListTile(
@@ -62,34 +78,6 @@ class _SetupAuthScreenState extends State<SetupAuthScreen> {
         subtitle: Text(subtitle),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,
-      ),
-    );
-  }
-
-  void _showPasswordSetupDialog(BuildContext context) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Setup Password'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Enter Password'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (controller.text.length < 4) return;
-              // Save logic
-              await context.read<AuthProvider>().verifyCredential(controller.text); // This saves too if handled correctly
-              Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, Routes.dashboard);
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }
